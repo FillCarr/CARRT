@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Carrt – Mobile Food Access</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<style>
+:root {
+  --hero-bg: url('assets/bg.png');
+  --brand: #204D77;
+  --brand-dark: #163c5d;
+}
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  color: #333;
+  background: var(--hero-bg) center/cover fixed no-repeat;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--hero-bg) center/cover no-repeat;
+  pointer-events: none;
+  z-index: -1;
+}
+
+header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 5%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+header img { height: 80px }
+h1 { font-size: 1.25rem; margin: 0; color: var(--brand) }
+section { padding: 2rem 5%; position: relative; z-index: 1; }
+
+.card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  padding: 1.5rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+#map { height: 400px; width: 100%; border-radius: 8px }
+
+#metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .6rem;
+}
+#metrics p {
+  margin: 0;
+  background: #f5f7f9;
+  padding: .75rem;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+}
+#reqForm {
+  display: grid;
+  gap: .65rem;
+}
+#reqForm input, #reqForm select, #reqForm textarea {
+  width: 100%;
+  font-size: 1rem;
+  padding: .65rem .8rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+#reqForm input:focus, #reqForm select:focus, #reqForm textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 4px rgba(32,77,119,.35);
+}
+#reqForm textarea { resize: vertical; min-height: 90px }
+#reqForm button {
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  padding: .75rem;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+#reqForm button:hover { background: var(--brand-dark) }
+#reqMsg { margin-left: .5rem; font-weight: bold }
+
+#deliveryWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: stretch;
+}
+
+.pane {
+  flex: 1;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+}
+#stopsAccordion {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  flex-grow: 1;
+}
+
+#stopsAccordion details {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  flex-grow: 1;
+  margin-bottom: 0.75rem;
+  border: 1px solid #ccc;
+  border-left: 8px solid var(--color);
+  border-radius: 6px;
+  background: #f9f9f9;
+  padding: 0.5rem 1rem;
+}
+#stopsAccordion summary {
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.zone-label { color: var(--color); }
+#stopsAccordion ul {
+  list-style: none;
+  margin: .5rem 0 0 0;
+  padding-left: 1rem;
+}
+#stopsAccordion li {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+.legend {
+  background: #fff;
+  padding: .6rem 1rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  line-height: 1.2;
+  font-size: .9rem
+}
+.legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="assets/carrt-logo.png" alt="Carrt">
+  <h1>Community Accessibility, Relief &amp; Resource Transportation</h1>
+</header>
+
+<section><div class="card"><h2>Food Access Zones Map</h2><div id="map"></div></div></section>
+
+<section><div class="card"><h2>Carrt Impact Stats</h2>
+  <div id="metrics">
+    <p>Households Served:<br><strong>0</strong></p>
+    <p>Meals Delivered:<br><strong>0</strong></p>
+    <p>Access Coverage:<br><strong>0%</strong></p>
+    <p>Feedback Score:<br><strong>0</strong></p>
+    <p>Waste Diverted:<br><strong>0 lbs</strong></p>
+  </div>
+</div></section>
+
+<section><div class="card">
+  <div id="deliveryWrap">
+    <div class="pane">
+      <h3>Need Food? Submit a Request</h3>
+      <form id="reqForm">
+        <input name="name" placeholder="Name" required>
+                <input name="pickup_location" placeholder="Home Address or 'Zone A – Abundant Hope'" required>
+        <input name="phone" type="tel" placeholder="Phone number" required>
+        <input name="email" type="mail" placeholder="Email" required>
+        <input name="household" type="number" min="1" placeholder="Household size" required>
+        <select name="snap" required>
+          <option value="" disabled selected>Receive SNAP?</option><option>yes</option><option>no</option>
+        </select>
+        <select name="vehicle" required>
+          <option value="" disabled selected>Have vehicle?</option><option>no</option><option>yes</option>
+        </select>
+        <input name="allergies" placeholder="Allergies (optional)">
+        <textarea name="notes" placeholder="Notes"></textarea>
+        <button>Send</button><span id="reqMsg"></span>
+      </form>
+    </div>
+    <div class="pane" id="stopsAccordion">
+      <h3>Weekly Delivery Schedule</h3>
+      <details style="--color: #e41a1c"><summary><span class="zone-label">Monday: Zone A</span></summary><ul id="zoneA"></ul></details>
+      <details style="--color: #377eb8"><summary><span class="zone-label">Tuesday: Zone B</span></summary><ul id="zoneB"></ul></details>
+      <details style="--color: #4daf4a"><summary><span class="zone-label">Wednesday: Zone C</span></summary><ul id="zoneC"></ul></details>
+      <details style="--color: #984ea3"><summary><span class="zone-label">Thursday: Zone D</span></summary><ul id="zoneD"></ul></details>
+      <details style="--color: #ff7f00"><summary><span class="zone-label">Friday: Zone E</span></summary><ul id="zoneE"></ul></details>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="card" style="text-align:center">
+  <h2>Help Us Keep Rolling</h2>
+  <a href="https://www.paypal.com" target="_blank">Donate via PayPal</a>
+</div></section>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const CVI_URL = './data/cvi.json';
+const STOP_URL = './data/stops.json';
+const METRICS_URL = './data/dashboard_data.json';
+const REQ_POST_URL = 'https://script.google.com/macros/s/AKfycbxeyPq8eG3Z5Mtyi8gdYcniFh27WiGQZXyjnSnmyuiHJziFM1GjasYjFdZmZfO2Kjl4-g/exec';
+const ZONE_URL = './data/zones.json';
+const COUNTY_URL = './data/county.json';
+
+const map = L.map('map').setView([29.90, -95.37], 9);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+map.createPane('zones').style.zIndex = 300;
+map.createPane('county').style.zIndex = 200;
+map.createPane('points').style.zIndex = 500;
+map.createPane('polygons').style.zIndex = 250;
+
+const cviLayer = L.layerGroup().addTo(map);
+const stopsLayer = L.layerGroup().addTo(map);
+const zoneLayer = L.layerGroup().addTo(map);
+const countyLayer = L.layerGroup().addTo(map);
+
+function cviColor(v) {
+  return v > 0.58 ? '#730000' : v > 0.21 ? '#b30000' : v > 0.1 ? '#e34a33' : v > 0.02 ? '#fdbb84' : '#fee8c8';
+}
+const stopIcon = L.icon({
+  iconUrl: 'assets/C-logo.png',
+  iconSize: [28, 38],
+  iconAnchor: [14, 38],
+  popupAnchor: [0, -34]
+});
+
+L.control.layers(null, {
+  'CVI': cviLayer,
+  'Carrt Stops': stopsLayer,
+  'Carrt Zones': zoneLayer,
+  'County Boundary': countyLayer
+}, { collapsed: true }).addTo(map);
+
+const popStop = p => `<div style="min-width:180px"><strong>${p.NAME||'CarrtStop'}</strong><br>
+<em>${p.STREET||''}</em><br>${p.CITY||''}, ${p.STATE||''} ${p.ZIP||''}<hr><small>EIN: ${p.EIN||'—'}</small></div>`;
+
+const popCVI = p => `<div style="min-width:170px"><strong>Block Group: ${p.GEOID}</strong><br>
+CVI: <strong>${(+p.cvi).toFixed(2)}</strong><hr>
+<table style="font-size:.85rem"><tr><td>Poverty fam.</td><td align="right">${p.B17010_E001}</td></tr>
+<tr><td>No-vehicle</td><td align="right">${p.B25003_E003}</td></tr>
+<tr><td>SNAP hholds</td><td align="right">${p.B22010_E003}</td></tr></table></div>`;
+
+fetch(CVI_URL).then(r => r.json()).then(g => {
+  L.geoJSON(g, {
+    pane: 'polygons',
+    style: f => ({ color: '#666', weight: .8, fillColor: cviColor(f.properties.cvi), fillOpacity: .6 }),
+    onEachFeature: (f, l) => l.bindPopup(popCVI(f.properties))
+  }).addTo(cviLayer);
+});
+
+fetch(STOP_URL).then(r => r.json()).then(g => {
+  L.geoJSON(g, {
+    pane: 'points',
+    pointToLayer: (f, ll) => L.marker(ll, { icon: stopIcon }),
+    onEachFeature: (f, l) => l.bindPopup(popStop(f.properties))
+  }).addTo(stopsLayer);
+});
+
+fetch(ZONE_URL).then(r => r.json()).then(g => {
+  const colorMap = {
+    A: '#e41a1c', B: '#377eb8', C: '#4daf4a', D: '#984ea3', E: '#ff7f00'
+  };
+  L.geoJSON(g, {
+    pane: 'zones',
+    style: f => ({
+      color: colorMap[f.properties.Zone] || '#888',
+      weight: 2,
+      fillOpacity: 0.15
+    }),
+    onEachFeature: (f, l) => l.bindPopup(`<strong>Zone:</strong> ${f.properties.Zone || 'Unknown'}`)
+  }).addTo(zoneLayer);
+});
+
+fetch(COUNTY_URL).then(r => r.json()).then(g => {
+  L.geoJSON(g, {
+    pane: 'county',
+    style: { color: '#000000', weight: 4, dashArray: '4', fillOpacity: 0 }
+  }).addTo(countyLayer);
+});
+
+fetch(STOP_URL).then(r => r.json()).then(data => {
+  const zones = { A: [], B: [], C: [], D: [], E: [] };
+  data.features.forEach(f => {
+    const z = (f.properties.Zone || '').toUpperCase();
+    if (zones[z]) zones[z].push(f.properties);
+  });
+  Object.entries(zones).forEach(([z, stops]) => {
+    const ul = document.getElementById(`zone${z}`);
+    if (!ul) return;
+    ul.innerHTML = stops.length ? stops.map(s => `<li><strong>${s.NAME || 'Unnamed'}</strong><br><span class="addr">${s.STREET || ''}</span></li>`).join('') : '<li>No stops</li>';
+  });
+});
+
+fetch(METRICS_URL).then(r => r.json()).then(d => {
+  document.getElementById('metrics').innerHTML = `
+    <p>Households Served:<br><strong>${d.households_served}</strong></p>
+    <p>Meals Delivered:<br><strong>${d.meals_delivered}</strong></p>
+    <p>Access Coverage:<br><strong>${d.food_access_coverage}</strong></p>
+    <p>Feedback Score:<br><strong>${d.feedback_score_avg}</strong></p>
+    <p>Waste Diverted:<br><strong>${d.waste_diverted_lbs} lbs</strong></p>`;
+});
+
+const f = document.getElementById('reqForm'), m = document.getElementById('reqMsg');
+f.addEventListener('submit', e => {
+  e.preventDefault(); m.textContent = 'Sending…';
+  fetch(REQ_POST_URL, { method: 'POST', body: new FormData(f) })
+    .then(r => r.json()).then(() => { m.textContent = '✓ Request received!'; f.reset(); })
+    .catch(() => m.textContent = 'Error – try again');
+});
+</script>
+</body>
+</html>
