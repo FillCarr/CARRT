@@ -256,7 +256,8 @@ const popStop = p => `<div style="min-width:180px"><strong>${p.NAME||'CarrtStop'
 const popCVI = p => `<div style="min-width:170px"><strong>Block Group: ${p.GEOID}</strong><br>
 CVI: <strong>${(+p.cvi).toFixed(2)}</strong><hr>
 <table style="font-size:.85rem"><tr><td>Poverty fam.</td><td align="right">${p.B17010_E001}</td></tr>
-<tr><td>No-vehicle</td><td align="right">${p.B25003_E003}</td></tr>
+<tr><td>No-vehicle</td><td align="right">${p.B25044_E003}</td></tr>
+<tr><td>Renter Occupied</td><td align="right">${p.B25003_E003}</td></tr>
 <tr><td>SNAP hholds</td><td align="right">${p.B22010_E003}</td></tr></table></div>`;
 
 fetch(CVI_URL).then(r => r.json()).then(g => {
