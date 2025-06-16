@@ -227,22 +227,20 @@ section { padding: 2rem 5%; position: relative; z-index: 1; }
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 const CVI_URL = './data/cvi.json';
-const STOP_URL = './data/stops.json';
 const METRICS_URL = './data/dashboard_data.json';
 const REQ_POST_URL = 'https://script.google.com/macros/s/AKfycbxeyPq8eG3Z5Mtyi8gdYcniFh27WiGQZXyjnSnmyuiHJziFM1GjasYjFdZmZfO2Kjl4-g/exec';
-const ZONE_URL = './data/zones.json';
+const CLUSTERED_URL = './data/stopsnzones.json';
 const COUNTY_URL = './data/county.json';
 
 const map = L.map('map').setView([29.90, -95.37], 9);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-map.createPane('zones').style.zIndex = 300;
+map.createPane('stopsnzones').style.zIndex = 300;
 map.createPane('county').style.zIndex = 200;
 map.createPane('points').style.zIndex = 500;
 map.createPane('polygons').style.zIndex = 250;
 
 const cviLayer = L.layerGroup().addTo(map);
-const stopsLayer = L.layerGroup().addTo(map);
-const zoneLayer = L.layerGroup().addTo(map);
+const stopsnzones = L.layerGroup().addTo(map);
 const countyLayer = L.layerGroup().addTo(map);
 
 function cviColor(v) {
@@ -257,8 +255,7 @@ const stopIcon = L.icon({
 
 L.control.layers(null, {
   'CVI': cviLayer,
-  'Carrt Stops': stopsLayer,
-  'Carrt Zones': zoneLayer,
+  'Carrt Stops': stopsnzones,
   'County Boundary': countyLayer
 }, { collapsed: true }).addTo(map);
 
@@ -287,39 +284,44 @@ fetch(STOP_URL).then(r => r.json()).then(g => {
     onEachFeature: (f, l) => l.bindPopup(popStop(f.properties))
   }).addTo(stopsLayer);
 });
+  fetch(CLUSTERED_URL).then(r => r.json()).then(g => {
+  const colorPalette = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf'];
+  const zonesById = {};
 
-fetch(ZONE_URL).then(r => r.json()).then(g => {
-  const colorMap = {
-    A: '#e41a1c', B: '#377eb8', C: '#4daf4a', D: '#984ea3', E: '#ff7f00'
-  };
   L.geoJSON(g, {
-    pane: 'zones',
-    style: f => ({
-      color: colorMap[f.properties.Zone] || '#888',
-      weight: 2,
-      fillOpacity: 0.15
-    }),
-    onEachFeature: (f, l) => l.bindPopup(`<strong>Zone:</strong> ${f.properties.Zone || 'Unknown'}`)
-  }).addTo(zoneLayer);
-});
+    pane: 'points',
+    pointToLayer: (f, ll) => {
+      const clusterId = f.properties.zone_id;
+      const color = colorPalette[clusterId % colorPalette.length];
+      if (!zonesById[clusterId]) zonesById[clusterId] = [];
+      zonesById[clusterId].push(f.properties);
 
-fetch(COUNTY_URL).then(r => r.json()).then(g => {
-  L.geoJSON(g, {
-    pane: 'county',
-    style: { color: '#000000', weight: 4, dashArray: '4', fillOpacity: 0 }
-  }).addTo(countyLayer);
-});
+      return L.circleMarker(ll, {
+        radius: 8,
+        fillColor: color,
+        color: '#333',
+        weight: 1,
+        fillOpacity: 0.9
+      });
+    },
+    onEachFeature: (f, l) => {
+      const p = f.properties;
+      l.bindPopup(`<strong>${p.NAME || 'Stop'}</strong><br>${p.STREET || ''}<br>Zone ID: ${p.zone_id}`);
+    }
+  }).addTo(stopsLayer);
 
-fetch(STOP_URL).then(r => r.json()).then(data => {
-  const zones = { A: [], B: [], C: [], D: [], E: [] };
-  data.features.forEach(f => {
-    const z = (f.properties.Zone || '').toUpperCase();
-    if (zones[z]) zones[z].push(f.properties);
-  });
-  Object.entries(zones).forEach(([z, stops]) => {
-    const ul = document.getElementById(`zone${z}`);
-    if (!ul) return;
-    ul.innerHTML = stops.length ? stops.map(s => `<li><strong>${s.NAME || 'Unnamed'}</strong><br><span class="addr">${s.STREET || ''}</span></li>`).join('') : '<li>No stops</li>';
+  // Populate accordion
+  const accordion = document.getElementById('stopsAccordion');
+  accordion.innerHTML = '<h3>Weekly Delivery Schedule</h3>'; // Clear static Zone A–E entries
+  Object.entries(zonesById).forEach(([id, stops]) => {
+    const color = colorPalette[id % colorPalette.length];
+    const details = document.createElement('details');
+    details.style.setProperty('--color', color);
+    details.innerHTML = `
+      <summary><span class="zone-label">Zone ${id}</span></summary>
+      <ul>${stops.map(s => `<li><strong>${s.NAME || 'Unnamed'}</strong><br><span class="addr">${s.STREET || ''}</span></li>`).join('')}</ul>
+    `;
+    accordion.appendChild(details);
   });
 });
 
