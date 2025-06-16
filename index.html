@@ -276,15 +276,23 @@ fetch(CVI_URL).then(r => r.json()).then(g => {
     onEachFeature: (f, l) => l.bindPopup(popCVI(f.properties))
   }).addTo(cviLayer);
 });
+// County boundary layer
+fetch(COUNTY_URL)
+  .then(r => r.json())
+  .then(g => {
+    L.geoJSON(g, {
+      pane: 'county',
+      style: {
+        color: '#000000',
+        weight: 4,
+        dashArray: '4',
+        fillOpacity: 0
+      }
+    }).addTo(countyLayer);
+  });
 
-fetch(STOP_URL).then(r => r.json()).then(g => {
-  L.geoJSON(g, {
-    pane: 'points',
-    pointToLayer: (f, ll) => L.marker(ll, { icon: stopIcon }),
-    onEachFeature: (f, l) => l.bindPopup(popStop(f.properties))
-  }).addTo(stopsLayer);
-});
-  fetch(CLUSTERED_URL).then(r => r.json()).then(g => {
+// Clustered stops and dynamic accordion
+fetch(CLUSTERED_URL).then(r => r.json()).then(g => {
   const colorPalette = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf'];
   const zonesById = {};
 
@@ -308,11 +316,11 @@ fetch(STOP_URL).then(r => r.json()).then(g => {
       const p = f.properties;
       l.bindPopup(`<strong>${p.NAME || 'Stop'}</strong><br>${p.STREET || ''}<br>Zone ID: ${p.zone_id}`);
     }
-  }).addTo(stopsLayer);
+  }).addTo(stopsnzones);
 
   // Populate accordion
   const accordion = document.getElementById('stopsAccordion');
-  accordion.innerHTML = '<h3>Weekly Delivery Schedule</h3>'; // Clear static Zone A–E entries
+  accordion.innerHTML = '<h3>Weekly Delivery Schedule</h3>';
   Object.entries(zonesById).forEach(([id, stops]) => {
     const color = colorPalette[id % colorPalette.length];
     const details = document.createElement('details');
@@ -325,22 +333,6 @@ fetch(STOP_URL).then(r => r.json()).then(g => {
   });
 });
 
-fetch(METRICS_URL).then(r => r.json()).then(d => {
-  document.getElementById('metrics').innerHTML = `
-    <p>Households Served:<br><strong>${d.households_served}</strong></p>
-    <p>Meals Delivered:<br><strong>${d.meals_delivered}</strong></p>
-    <p>Access Coverage:<br><strong>${d.food_access_coverage}</strong></p>
-    <p>Feedback Score:<br><strong>${d.feedback_score_avg}</strong></p>
-    <p>Waste Diverted:<br><strong>${d.waste_diverted_lbs} lbs</strong></p>`;
-});
-
-const f = document.getElementById('reqForm'), m = document.getElementById('reqMsg');
-f.addEventListener('submit', e => {
-  e.preventDefault(); m.textContent = 'Sending…';
-  fetch(REQ_POST_URL, { method: 'POST', body: new FormData(f) })
-    .then(r => r.json()).then(() => { m.textContent = '✓ Request received!'; f.reset(); })
-    .catch(() => m.textContent = 'Error – try again');
-});
 </script>
 </body>
 </html>
